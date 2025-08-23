@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Folder: {{ folder.name }}</h3>
+    <div>
+      <a class="btn btn-primary" href="{{ url_for('new_note') }}?folder_id={{ folder.id }}">New Note in Folder</a>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-md-6">
+      <h5>Subfolders</h5>
+      <form class="d-flex mb-2" method="post" action="{{ url_for('create_folder') }}">
+        <input type="hidden" name="parent_id" value="{{ folder.id }}">
+        <input class="form-control me-2" name="name" placeholder="New subfolder name" required>
+        <button class="btn btn-outline-primary">Create</button>
+      </form>
+      {% for f in subfolders %}
+        <div class="folder">
+          <div class="d-flex justify-content-between align-items-center">
+            <a class="text-decoration-none fw-semibold" href="{{ url_for('view_folder', folder_id=f.id) }}">{{ f.name }}</a>
+            <form method="post" action="{{ url_for('delete_folder', folder_id=f.id) }}" onsubmit="return confirm('Delete folder?')">
+              <button class="btn btn-sm btn-outline-danger">Delete</button>
+            </form>
+          </div>
+        </div>
+      {% else %}
+        <p class="text-muted">No subfolders yet.</p>
+      {% endfor %}
+    </div>
+    <div class="col-md-6">
+      <h5>Notes</h5>
+      {% for n in notes %}
+        <div class="note">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <a class="text-decoration-none fw-semibold" href="{{ url_for('edit_note', note_id=n.id) }}">{{ n.title }}</a>
+              {% if n.is_public %}
+                <span class="badge text-bg-success ms-2">Public</span>
+                <a class="small ms-2" target="_blank" href="{{ url_for('public_note', slug=n.slug) }}">open</a>
+              {% else %}
+                <span class="badge text-bg-secondary ms-2">Private</span>
+              {% endif %}
+            </div>
+            <small class="text-muted">{{ n.updated_at.strftime("%Y-%m-%d %H:%M") }}</small>
+          </div>
+        </div>
+      {% else %}
+        <p class="text-muted">No notes yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h1 class="card-title">{{ note.title }}</h1>
+          <p class="text-muted">by {{ owner.name }}</p>
+          <hr>
+          <div style="white-space: pre-wrap">{{ note.content }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="mt-3">
+    <h2>Welcome back, {{ user.name }} 👋</h2>
+    <p class="text-secondary">Jump into your <a href="{{ url_for('dashboard') }}">dashboard</a> or create a <a href="{{ url_for('new_note') }}">new note</a>.</p>
+  </div>
+{% endblock %}

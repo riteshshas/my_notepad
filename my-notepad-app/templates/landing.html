@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="py-5 text-center">
+    <h1 class="display-5 fw-bold">Your Personal Notepad</h1>
+    <p class="lead">Password-protected notes with folders and public sharing links.</p>
+    <a class="btn btn-primary btn-lg" href="{{ url_for('register') }}">Create your account</a>
+    <a class="btn btn-outline-secondary btn-lg ms-2" href="{{ url_for('login') }}">Log in</a>
+  </div>
+{% endblock %}
