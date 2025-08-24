@@ -498,7 +498,7 @@
 
     <!-- Main Content -->
     <main class="main">
-      <div class="section-title">Recent Notes</div>
+      <div class="section-title" id="sectionTitle">Recent Notes</div>
       <div class="notes-grid" id="notesGrid">
         <div class="empty-state" id="emptyState">
           <div class="empty-icon">📝</div>
@@ -586,8 +586,9 @@
   </div>
 
   <script>
-    // Storage and crypto utilities
+    // Storage and state management
     const STORAGE_KEY = 'ritesh_notepad_v1';
+    
     const appState = { 
       data: null, 
       unlocked: false, 
@@ -598,101 +599,139 @@
       password: null
     };
 
-    const $ = id => document.getElementById(id);
-    const uid = (n=10) => { 
+    // Utility functions
+    const $ = (id) => document.getElementById(id);
+    
+    const uid = (n = 10) => { 
       const s = 'abcdefghijklmnopqrstuvwxyz0123456789'; 
-      let r=''; 
-      for(let i=0;i<n;i++) r+=s[Math.floor(Math.random()*s.length)]; 
+      let r = ''; 
+      for(let i = 0; i < n; i++) {
+        r += s[Math.floor(Math.random() * s.length)]; 
+      }
       return r;
-    }
+    };
 
-    function nowISO() { return new Date().toISOString(); }
+    const nowISO = () => new Date().toISOString();
 
+    const escapeHtml = (s) => { 
+      if (!s) return ''; 
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    };
+
+    // Data management
     function loadData() {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = window.localStorage.getItem(STORAGE_KEY);
         if (!raw) {
           const base = { 
-            folders: [{id:'inbox', name:'Inbox'}], 
+            folders: [{id: 'inbox', name: 'Inbox'}], 
             notes: [] 
           };
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(base));
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(base));
           return base;
         }
         return JSON.parse(raw);
       } catch(e) {
-        console.error('loadData', e);
-        return {folders: [{id:'inbox', name:'Inbox'}], notes: []};
+        console.error('loadData error:', e);
+        return {folders: [{id: 'inbox', name: 'Inbox'}], notes: []};
       }
     }
 
     function saveData() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data));
-      renderNotes();
-      updateCounts();
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data));
+        renderNotes();
+        updateCounts();
+      } catch(e) {
+        console.error('saveData error:', e);
+        alert('Error saving data');
+      }
     }
 
-    // Crypto helpers
+    // Crypto helpers (simplified and error-handled)
     async function deriveKeyFromPassword(password, saltBase64) {
-      const enc = new TextEncoder();
-      const salt = saltBase64 ? base64ToArr(saltBase64) : crypto.getRandomValues(new Uint8Array(16));
-      const pwKey = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
-      const key = await crypto.subtle.deriveKey(
-        {name:'PBKDF2', salt, iterations:250000, hash:'SHA-256'}, 
-        pwKey, 
-        {name:'AES-GCM', length:256}, 
-        false, 
-        ['encrypt','decrypt']
-      );
-      return {key, salt};
+      try {
+        const enc = new TextEncoder();
+        const salt = saltBase64 ? base64ToArr(saltBase64) : crypto.getRandomValues(new Uint8Array(16));
+        const pwKey = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+        const key = await crypto.subtle.deriveKey(
+          {name: 'PBKDF2', salt: salt, iterations: 100000, hash: 'SHA-256'}, 
+          pwKey, 
+          {name: 'AES-GCM', length: 256}, 
+          false, 
+          ['encrypt', 'decrypt']
+        );
+        return {key, salt};
+      } catch(e) {
+        console.error('deriveKeyFromPassword error:', e);
+        throw new Error('Failed to derive key from password');
+      }
     }
 
     async function encryptText(plain, cryptoKey) {
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const enc = new TextEncoder();
-      const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, cryptoKey, enc.encode(plain));
-      return {cipher: new Uint8Array(ct), iv};
+      try {
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const enc = new TextEncoder();
+        const cipherBuffer = await crypto.subtle.encrypt({name: 'AES-GCM', iv: iv}, cryptoKey, enc.encode(plain));
+        return {cipher: new Uint8Array(cipherBuffer), iv: iv};
+      } catch(e) {
+        console.error('encryptText error:', e);
+        throw new Error('Failed to encrypt text');
+      }
     }
 
     async function decryptText(cipherArr, ivArr, cryptoKey) {
       try {
-        const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:ivArr}, cryptoKey, cipherArr);
-        return new TextDecoder().decode(pt);
+        const plainBuffer = await crypto.subtle.decrypt({name: 'AES-GCM', iv: ivArr}, cryptoKey, cipherArr);
+        return new TextDecoder().decode(plainBuffer);
       } catch(e) {
-        throw new Error('Decryption failed');
+        console.error('decryptText error:', e);
+        throw new Error('Failed to decrypt text');
       }
     }
 
     function arrToBase64(buf) { 
-      return btoa(String.fromCharCode(...new Uint8Array(buf)));
+      try {
+        return btoa(String.fromCharCode(...new Uint8Array(buf)));
+      } catch(e) {
+        console.error('arrToBase64 error:', e);
+        return '';
+      }
     }
     
     function base64ToArr(b) { 
-      const str = atob(b); 
-      const arr = new Uint8Array(str.length); 
-      for(let i=0;i<str.length;i++) arr[i]=str.charCodeAt(i); 
-      return arr;
+      try {
+        const str = atob(b); 
+        const arr = new Uint8Array(str.length); 
+        for(let i = 0; i < str.length; i++) {
+          arr[i] = str.charCodeAt(i); 
+        }
+        return arr;
+      } catch(e) {
+        console.error('base64ToArr error:', e);
+        return new Uint8Array(0);
+      }
     }
 
-    function escapeHtml(s) { 
-      if(!s) return ''; 
-      return s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
-    }
-
+    // Date formatting
     function formatDate(dateStr) {
-      const date = new Date(dateStr);
-      const now = new Date();
-      const diffMs = now - date;
-      const diffMins = Math.floor(diffMs / (1000 * 60));
-      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      try {
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / (1000 * 60));
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-      if (diffMins < 1) return 'Just now';
-      if (diffMins < 60) return `${diffMins}m ago`;
-      if (diffHours < 24) return `${diffHours}h ago`;
-      if (diffDays < 7) return `${diffDays}d ago`;
-      
-      return date.toLocaleDateString();
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays < 7) return `${diffDays}d ago`;
+        
+        return date.toLocaleDateString();
+      } catch(e) {
+        return 'Unknown date';
+      }
     }
 
     // UI Functions
@@ -717,6 +756,8 @@
 
       notes.sort((a, b) => new Date(b.updated || b.created) - new Date(a.updated || a.created));
 
+      container.innerHTML = '';
+
       if (notes.length === 0) {
         emptyState.style.display = 'block';
         if (appState.showingLocked) {
@@ -727,7 +768,7 @@
         } else if (searchQuery) {
           emptyState.innerHTML = `
             <div class="empty-icon">🔍</div>
-            <p>No notes found for "${searchQuery}"</p>
+            <p>No notes found for "${escapeHtml(searchQuery)}"</p>
           `;
         } else {
           emptyState.innerHTML = `
@@ -735,12 +776,13 @@
             <p>No notes yet. Tap the + button to create your first note!</p>
           `;
         }
+        container.appendChild(emptyState);
         return;
       }
 
       emptyState.style.display = 'none';
       
-      const notesHtml = notes.map(note => {
+      notes.forEach(note => {
         const folder = appState.data.folders.find(f => f.id === note.folderId);
         const folderName = folder ? folder.name : 'Unknown';
         
@@ -755,29 +797,24 @@
           preview = note.plainText ? note.plainText.substring(0, 100) + (note.plainText.length > 100 ? '...' : '') : 'No content';
         }
 
-        return `
-          <div class="note-card ${note.isPrivate ? 'locked-note' : ''}" data-id="${note.id}">
-            <div class="note-title">${escapeHtml(note.title || 'Untitled Note')}</div>
-            <div class="note-preview">${escapeHtml(preview)}</div>
-            <div class="note-meta">
-              <span class="note-date">${formatDate(note.updated || note.created)}</span>
-              <div style="display: flex; gap: 6px;">
-                <span class="note-badge">${escapeHtml(folderName)}</span>
-                ${note.isPrivate ? '<span class="note-badge private-badge">Private</span>' : ''}
-              </div>
+        const noteCard = document.createElement('div');
+        noteCard.className = `note-card ${note.isPrivate ? 'locked-note' : ''}`;
+        noteCard.dataset.id = note.id;
+        
+        noteCard.innerHTML = `
+          <div class="note-title">${escapeHtml(note.title || 'Untitled Note')}</div>
+          <div class="note-preview">${escapeHtml(preview)}</div>
+          <div class="note-meta">
+            <span class="note-date">${formatDate(note.updated || note.created)}</span>
+            <div style="display: flex; gap: 6px;">
+              <span class="note-badge">${escapeHtml(folderName)}</span>
+              ${note.isPrivate ? '<span class="note-badge private-badge">Private</span>' : ''}
             </div>
           </div>
         `;
-      }).join('');
 
-      container.innerHTML = notesHtml;
-
-      // Add click handlers
-      container.querySelectorAll('.note-card').forEach(card => {
-        card.addEventListener('click', () => {
-          const noteId = card.dataset.id;
-          openNote(noteId);
-        });
+        noteCard.addEventListener('click', () => openNote(note.id));
+        container.appendChild(noteCard);
       });
     }
 
@@ -786,22 +823,42 @@
       const folderSelect = $('folderSelect');
       
       // Update folders list in menu
-      const foldersHtml = appState.data.folders.map(folder => `
-        <div class="folder-item">
+      container.innerHTML = '';
+      appState.data.folders.forEach(folder => {
+        const folderItem = document.createElement('div');
+        folderItem.className = 'folder-item';
+        folderItem.innerHTML = `
           <span>${escapeHtml(folder.name)}</span>
           <div class="folder-actions">
-            <button class="folder-btn" onclick="renameFolder('${folder.id}')">✏️</button>
-            <button class="folder-btn" onclick="deleteFolder('${folder.id}')">🗑️</button>
+            <button class="folder-btn" data-action="rename" data-id="${folder.id}">✏️</button>
+            <button class="folder-btn" data-action="delete" data-id="${folder.id}">🗑️</button>
           </div>
-        </div>
-      `).join('');
-      
-      container.innerHTML = foldersHtml;
+        `;
+        container.appendChild(folderItem);
+      });
+
+      // Add event listeners for folder buttons
+      container.addEventListener('click', (e) => {
+        if (e.target.classList.contains('folder-btn')) {
+          const action = e.target.dataset.action;
+          const folderId = e.target.dataset.id;
+          
+          if (action === 'rename') {
+            renameFolder(folderId);
+          } else if (action === 'delete') {
+            deleteFolder(folderId);
+          }
+        }
+      });
       
       // Update folder select in editor
-      folderSelect.innerHTML = appState.data.folders.map(folder => 
-        `<option value="${folder.id}">${escapeHtml(folder.name)}</option>`
-      ).join('');
+      folderSelect.innerHTML = '';
+      appState.data.folders.forEach(folder => {
+        const option = document.createElement('option');
+        option.value = folder.id;
+        option.textContent = folder.name;
+        folderSelect.appendChild(option);
+      });
     }
 
     function updateCounts() {
@@ -869,6 +926,7 @@
         const text = await decryptText(cipherArr, iv, key);
         $('noteContentTextarea').value = text;
       } catch(e) {
+        console.error('Decrypt error:', e);
         $('noteContentTextarea').value = '❌ Unable to decrypt. Wrong password?';
       }
     }
@@ -878,43 +936,383 @@
     }
 
     async function saveNote() {
-      const title = $('noteTitleInput').value.trim();
-      const content = $('noteContentTextarea').value;
-      const folderId = $('folderSelect').value;
-      const isPrivate = $('privateCheckbox').checked;
-      
-      if (!title && !content) {
-        alert('Please enter a title or content');
-        return;
-      }
+      try {
+        const title = $('noteTitleInput').value.trim();
+        const content = $('noteContentTextarea').value;
+        const folderId = $('folderSelect').value;
+        const isPrivate = $('privateCheckbox').checked;
+        
+        if (!title && !content) {
+          alert('Please enter a title or content');
+          return;
+        }
 
-      if (isPrivate && (!appState.unlocked || !appState.cryptoKey)) {
-        alert('Please setup/unlock password before saving private notes.');
-        return;
-      }
+        if (isPrivate && (!appState.unlocked || !appState.cryptoKey)) {
+          alert('Please setup/unlock password before saving private notes.');
+          return;
+        }
 
-      const now = nowISO();
-      
-      if (appState.currentNoteId) {
-        // Update existing note
-        const note = appState.data.notes.find(n => n.id === appState.currentNoteId);
-        if (note) {
-          note.title = title;
-          note.folderId = folderId;
-          note.isPrivate = isPrivate;
-          note.updated = now;
+        const now = nowISO();
+        
+        if (appState.currentNoteId) {
+          // Update existing note
+          const note = appState.data.notes.find(n => n.id === appState.currentNoteId);
+          if (note) {
+            note.title = title;
+            note.folderId = folderId;
+            note.isPrivate = isPrivate;
+            note.updated = now;
+            
+            if (isPrivate) {
+              const encRes = await encryptText(content, appState.cryptoKey);
+              note.body = arrToBase64(encRes.cipher);
+              note.iv = arrToBase64(encRes.iv);
+              note.salt = arrToBase64(appState.salt);
+              delete note.plainText;
+            } else {
+              note.plainText = content;
+              delete note.body;
+              delete note.iv;
+              delete note.salt;
+            }
+          }
+        } else {
+          // Create new note
+          const id = uid(12);
+          const newNote = {
+            id,
+            title,
+            folderId,
+            created: now,
+            updated: now,
+            isPrivate,
+          };
           
           if (isPrivate) {
             const encRes = await encryptText(content, appState.cryptoKey);
-            note.body = arrToBase64(encRes.cipher);
-            note.iv = arrToBase64(encRes.iv);
-            note.salt = arrToBase64(appState.salt);
-            delete note.plainText;
+            newNote.body = arrToBase64(encRes.cipher);
+            newNote.iv = arrToBase64(encRes.iv);
+            newNote.salt = arrToBase64(appState.salt);
           } else {
-            note.plainText = content;
-            delete note.body;
-            delete note.iv;
-            delete note.salt;
+            newNote.plainText = content;
+          }
+          
+          appState.data.notes.push(newNote);
+        }
+        
+        saveData();
+        hideEditor();
+        alert('Note saved successfully!');
+      } catch(e) {
+        console.error('Save error:', e);
+        alert('Error saving note: ' + e.message);
+      }
+    }
+
+    function deleteNote() {
+      if (!appState.currentNoteId) return;
+      
+      if (confirm('Are you sure you want to delete this note?')) {
+        appState.data.notes = appState.data.notes.filter(n => n.id !== appState.currentNoteId);
+        saveData();
+        hideEditor();
+      }
+    }
+
+    function createFolder() {
+      const name = $('newFolderInput').value.trim();
+      if (!name) {
+        alert('Please enter folder name');
+        return;
+      }
+      
+      const id = uid(8);
+      appState.data.folders.push({id, name});
+      saveData();
+      renderFolders();
+      $('newFolderInput').value = '';
+    }
+
+    function renameFolder(folderId) {
+      const folder = appState.data.folders.find(f => f.id === folderId);
+      if (!folder) return;
+      
+      const newName = prompt('Enter new folder name:', folder.name);
+      if (newName && newName.trim()) {
+        folder.name = newName.trim();
+        saveData();
+        renderFolders();
+      }
+    }
+
+    function deleteFolder(folderId) {
+      if (folderId === 'inbox') {
+        alert('Cannot delete Inbox folder');
+        return;
+      }
+      
+      if (confirm('Delete folder and all notes inside?')) {
+        appState.data.notes = appState.data.notes.filter(n => n.folderId !== folderId);
+        appState.data.folders = appState.data.folders.filter(f => f.id !== folderId);
+        saveData();
+        renderFolders();
+      }
+    }
+
+    function toggleLockedNotes() {
+      appState.showingLocked = !appState.showingLocked;
+      
+      const sectionTitle = $('sectionTitle');
+      const showLockedBtn = $('showLockedBtn');
+      
+      if (appState.showingLocked) {
+        sectionTitle.textContent = 'Locked Notes';
+        showLockedBtn.innerHTML = '<span>📝</span><span>View All Notes</span>';
+      } else {
+        sectionTitle.textContent = 'Recent Notes';
+        showLockedBtn.innerHTML = '<span>🔒</span><span>View Locked Notes</span>';
+      }
+      
+      renderNotes();
+      hideMenu();
+    }
+
+    async function setupOrUnlockPassword() {
+      try {
+        if (appState.unlocked) {
+          // Change password
+          if (!confirm('Change password? This will re-encrypt your private notes with new password.')) {
+            return;
+          }
+          
+          const newPw = prompt('Enter NEW password (min 6 chars)');
+          if (!newPw || newPw.length < 6) {
+            alert('Password too short');
+            return;
+          }
+          
+          // Re-encrypt all private notes
+          const plainMap = {};
+          for (const note of appState.data.notes.filter(n => n.isPrivate)) {
+            try {
+              const cipherArr = base64ToArr(note.body);
+              const iv = base64ToArr(note.iv);
+              const text = await decryptText(cipherArr, iv, appState.cryptoKey);
+              plainMap[note.id] = text;
+            } catch (e) {
+              console.error('Failed to decrypt note during password change:', e);
+            }
+          }
+          
+          // Derive new key
+          const {key, salt} = await deriveKeyFromPassword(newPw);
+          appState.password = newPw;
+          appState.cryptoKey = key;
+          appState.salt = salt;
+          
+          // Re-encrypt with new key
+          for (const note of appState.data.notes.filter(n => n.isPrivate)) {
+            if (plainMap[note.id]) {
+              const encRes = await encryptText(plainMap[note.id], appState.cryptoKey);
+              note.body = arrToBase64(encRes.cipher);
+              note.iv = arrToBase64(encRes.iv);
+              note.salt = arrToBase64(salt);
+            }
+          }
+          
+          saveData();
+          alert('Password changed and private notes re-encrypted');
+          updatePasswordButton();
+          hideMenu();
+          return;
+        }
+
+        // Setup or unlock
+        const choice = confirm('Press OK to create a NEW password. Press Cancel to enter EXISTING password.');
+        
+        if (choice) {
+          // Create new password
+          const pw = prompt('Create a password (min 6 chars)');
+          if (!pw || pw.length < 6) {
+            alert('Password too short');
+            return;
+          }
+          
+          const {key, salt} = await deriveKeyFromPassword(pw);
+          appState.unlocked = true;
+          appState.password = pw;
+          appState.cryptoKey = key;
+          appState.salt = salt;
+          alert('Password created successfully!');
+        } else {
+          // Unlock with existing password
+          const pw = prompt('Enter your password');
+          if (!pw) return;
+          
+          const anyPrivate = appState.data.notes.find(n => n.isPrivate);
+          if (!anyPrivate) {
+            const {key, salt} = await deriveKeyFromPassword(pw);
+            appState.unlocked = true;
+            appState.password = pw;
+            appState.cryptoKey = key;
+            appState.salt = salt;
+            alert('Password set (no private notes exist)');
+          } else {
+            try {
+              const {key} = await deriveKeyFromPassword(pw, anyPrivate.salt);
+              const ct = base64ToArr(anyPrivate.body);
+              const iv = base64ToArr(anyPrivate.iv);
+              await decryptText(ct, iv, key);
+              
+              appState.unlocked = true;
+              appState.password = pw;
+              appState.cryptoKey = key;
+              appState.salt = base64ToArr(anyPrivate.salt);
+              alert('Unlocked successfully!');
+            } catch (e) {
+              alert('Wrong password or corrupted note');
+              return;
+            }
           }
         }
+        
+        updatePasswordButton();
+        renderNotes();
+        hideMenu();
+      } catch(e) {
+        console.error('Password setup error:', e);
+        alert('Error: ' + e.message);
+      }
+    }
+
+    function updatePasswordButton() {
+      const btnText = $('passwordBtnText');
+      if (appState.unlocked) {
+        btnText.textContent = 'Change Password';
       } else {
+        btnText.textContent = 'Setup Password';
+      }
+    }
+
+    function exportData() {
+      try {
+        const dataStr = JSON.stringify(appState.data, null, 2);
+        const blob = new Blob([dataStr], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'notepad_backup.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        hideMenu();
+      } catch(e) {
+        console.error('Export error:', e);
+        alert('Error exporting data');
+      }
+    }
+
+    function importData() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const data = JSON.parse(ev.target.result);
+            if (!data.folders || !data.notes) {
+              alert('Invalid backup file');
+              return;
+            }
+            
+            if (confirm('This will replace all current data. Continue?')) {
+              appState.data = data;
+              saveData();
+              renderFolders();
+              alert('Data imported successfully!');
+            }
+          } catch (err) {
+            console.error('Import error:', err);
+            alert('Invalid JSON file');
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+      hideMenu();
+    }
+
+    // Event Listeners
+    function bindEvents() {
+      // Header buttons
+      $('menuBtn').addEventListener('click', showMenu);
+      $('addBtn').addEventListener('click', () => showEditor());
+      
+      // Search
+      $('searchBox').addEventListener('input', renderNotes);
+      
+      // Menu
+      $('closeMenuBtn').addEventListener('click', hideMenu);
+      $('menuOverlay').addEventListener('click', (e) => {
+        if (e.target === $('menuOverlay')) {
+          hideMenu();
+        }
+      });
+      
+      // Menu items
+      $('showLockedBtn').addEventListener('click', toggleLockedNotes);
+      $('setupPasswordBtn').addEventListener('click', setupOrUnlockPassword);
+      $('exportBtn').addEventListener('click', exportData);
+      $('importBtn').addEventListener('click', importData);
+      $('createFolderBtn').addEventListener('click', createFolder);
+      
+      // Folder input
+      $('newFolderInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          createFolder();
+        }
+      });
+      
+      // Editor
+      $('closeEditorBtn').addEventListener('click', hideEditor);
+      $('saveBtn').addEventListener('click', saveNote);
+      $('deleteBtn').addEventListener('click', deleteNote);
+      
+      // Editor input events
+      $('noteTitleInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          $('noteContentTextarea').focus();
+        }
+      });
+    }
+
+    // Initialize app
+    function init() {
+      try {
+        appState.data = loadData();
+        bindEvents();
+        renderNotes();
+        renderFolders();
+        updateCounts();
+        updatePasswordButton();
+        console.log('App initialized successfully');
+      } catch(e) {
+        console.error('Initialization error:', e);
+        alert('Error initializing app: ' + e.message);
+      }
+    }
+
+    // Start the app when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  </script>
+</body>
+</html>
