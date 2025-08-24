@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ritesh's Personal Notepad</title>
+  <style>
+    :root{
+      --bg:#0f1724;
+      --card:#0b1220;
+      --accent:#06b6d4;
+      --muted:#94a3b8;
+      --glass:rgba(255,255,255,0.03);
+      --border:rgba(255,255,255,0.06);
+    }
+    
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+    }
+    
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(180deg, #071029 0%, #071826 100%);
+      color: #e6eef6;
+      overflow-x: hidden;
+    }
+    
+    .app {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    
+    /* Header */
+    .header {
+      padding: 16px 20px;
+      background: rgba(255,255,255,0.02);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    
+    .logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), #0ea5a6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: #012;
+      font-size: 18px;
+    }
+    
+    .menu-btn, .add-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      color: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 18px;
+      transition: all 0.2s;
+    }
+    
+    .add-btn {
+      background: var(--accent);
+      color: #012;
+      font-weight: 700;
+      box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+    }
+    
+    .add-btn:active, .menu-btn:active {
+      transform: scale(0.95);
+    }
+    
+    .search-container {
+      position: relative;
+    }
+    
+    .search-box {
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: inherit;
+      font-size: 16px;
+      outline: none;
+    }
+    
+    .search-box::placeholder {
+      color: var(--muted);
+    }
+    
+    /* Main Content */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 20px 20px;
+    }
+    
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 20px 0 12px;
+      color: #e6eef6;
+    }
+    
+    .notes-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .note-card {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+    
+    .note-card:active {
+      transform: scale(0.98);
+      background: rgba(255,255,255,0.05);
+    }
+    
+    .note-title {
+      font-weight: 600;
+      font-size: 16px;
+      margin-bottom: 6px;
+      color: #e6eef6;
+      display: -webkit-box;
+      -webkit-line-clamp: 1;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    
+    .note-preview {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    
+    .note-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    
+    .note-date {
+      flex: 1;
+    }
+    
+    .note-badge {
+      background: rgba(6, 182, 212, 0.2);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    
+    .private-badge {
+      background: rgba(255, 123, 123, 0.2);
+      color: #ff7b7b;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+    }
+    
+    .empty-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+    
+    /* Menu Overlay */
+    .menu-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 200;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s;
+    }
+    
+    .menu-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .menu-panel {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 280px;
+      height: 100%;
+      background: var(--card);
+      border-left: 1px solid var(--border);
+      transform: translateX(100%);
+      transition: transform 0.3s;
+      overflow-y: auto;
+    }
+    
+    .menu-overlay.active .menu-panel {
+      transform: translateX(0);
+    }
+    
+    .menu-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .close-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      color: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    
+    .menu-section {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .menu-section h3 {
+      margin: 0 0 12px 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    
+    .menu-item {
+      padding: 12px 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      color: var(--muted);
+      transition: color 0.2s;
+    }
+    
+    .menu-item:hover {
+      color: #e6eef6;
+    }
+    
+    .folders-list {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    
+    .folder-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      color: var(--muted);
+    }
+    
+    .folder-actions {
+      display: flex;
+      gap: 4px;
+    }
+    
+    .folder-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      color: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    
+    .new-folder {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    
+    .new-folder input {
+      flex: 1;
+      padding: 8px;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: inherit;
+      font-size: 14px;
+      outline: none;
+    }
+    
+    .new-folder button {
+      padding: 8px 12px;
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      color: #012;
+      font-weight: 500;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    /* Editor Modal */
+    .editor-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--bg);
+      z-index: 300;
+      display: flex;
+      flex-direction: column;
+      transform: translateY(100%);
+      transition: transform 0.3s;
+    }
+    
+    .editor-modal.active {
+      transform: translateY(0);
+    }
+    
+    .editor-header {
+      padding: 16px 20px;
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .editor-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      color: inherit;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .btn-primary {
+      background: var(--accent);
+      color: #012;
+      border-color: var(--accent);
+    }
+    
+    .btn-danger {
+      background: #ff7b7b;
+      color: #012;
+      border-color: #ff7b7b;
+    }
+    
+    .editor-form {
+      flex: 1;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .form-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    
+    .form-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: #e6eef6;
+    }
+    
+    .form-input {
+      padding: 12px;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: inherit;
+      font-size: 16px;
+      outline: none;
+      font-family: inherit;
+    }
+    
+    .form-textarea {
+      flex: 1;
+      min-height: 200px;
+      resize: none;
+      font-family: inherit;
+      line-height: 1.5;
+    }
+    
+    .form-select {
+      padding: 12px;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: inherit;
+      font-size: 14px;
+      outline: none;
+      min-width: 120px;
+    }
+    
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+    
+    .locked-note {
+      background: rgba(255, 123, 123, 0.1);
+      border-color: rgba(255, 123, 123, 0.3);
+    }
+    
+    .locked-content {
+      text-align: center;
+      padding: 20px;
+      color: #ff7b7b;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-top">
+        <div class="logo">R</div>
+        <div style="display: flex; gap: 12px;">
+          <button class="menu-btn" id="menuBtn">⋯</button>
+          <button class="add-btn" id="addBtn">+</button>
+        </div>
+      </div>
+      <div class="search-container">
+        <input type="text" class="search-box" id="searchBox" placeholder="Search your notes...">
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+      <div class="section-title">Recent Notes</div>
+      <div class="notes-grid" id="notesGrid">
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">📝</div>
+          <p>No notes yet. Tap the + button to create your first note!</p>
+        </div>
+      </div>
+    </main>
+
+    <!-- Menu Overlay -->
+    <div class="menu-overlay" id="menuOverlay">
+      <div class="menu-panel">
+        <div class="menu-header">
+          <h2>Menu</h2>
+          <button class="close-btn" id="closeMenuBtn">×</button>
+        </div>
+        
+        <div class="menu-section">
+          <h3>Actions</h3>
+          <div class="menu-item" id="showLockedBtn">
+            <span>🔒</span>
+            <span>View Locked Notes</span>
+          </div>
+          <div class="menu-item" id="setupPasswordBtn">
+            <span>🔑</span>
+            <span id="passwordBtnText">Setup Password</span>
+          </div>
+          <div class="menu-item" id="exportBtn">
+            <span>📤</span>
+            <span>Export Data</span>
+          </div>
+          <div class="menu-item" id="importBtn">
+            <span>📥</span>
+            <span>Import Data</span>
+          </div>
+        </div>
+
+        <div class="menu-section">
+          <h3>Folders</h3>
+          <div class="folders-list" id="foldersList"></div>
+          <div class="new-folder">
+            <input type="text" id="newFolderInput" placeholder="New folder...">
+            <button id="createFolderBtn">Add</button>
+          </div>
+        </div>
+
+        <div class="menu-section">
+          <div style="font-size: 12px; color: var(--muted); line-height: 1.4;">
+            <p>Notes: <span id="noteCount">0</span></p>
+            <p>All data stored locally on your device. Private notes are encrypted.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Editor Modal -->
+    <div class="editor-modal" id="editorModal">
+      <div class="editor-header">
+        <button class="btn" id="closeEditorBtn">Cancel</button>
+        <div class="editor-actions">
+          <button class="btn btn-danger" id="deleteBtn" style="display: none;">Delete</button>
+          <button class="btn btn-primary" id="saveBtn">Save</button>
+        </div>
+      </div>
+      
+      <div class="editor-form">
+        <div class="form-group">
+          <input type="text" class="form-input" id="noteTitleInput" placeholder="Note title...">
+        </div>
+        
+        <div class="form-row">
+          <select class="form-select" id="folderSelect">
+            <option value="inbox">Inbox</option>
+          </select>
+          <div class="checkbox-group">
+            <input type="checkbox" id="privateCheckbox">
+            <label for="privateCheckbox">Private</label>
+          </div>
+        </div>
+        
+        <div class="form-group" style="flex: 1;">
+          <textarea class="form-input form-textarea" id="noteContentTextarea" placeholder="Start writing..."></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Storage and crypto utilities
+    const STORAGE_KEY = 'ritesh_notepad_v1';
+    const appState = { 
+      data: null, 
+      unlocked: false, 
+      cryptoKey: null, 
+      currentNoteId: null,
+      showingLocked: false,
+      salt: null,
+      password: null
+    };
+
+    const $ = id => document.getElementById(id);
+    const uid = (n=10) => { 
+      const s = 'abcdefghijklmnopqrstuvwxyz0123456789'; 
+      let r=''; 
+      for(let i=0;i<n;i++) r+=s[Math.floor(Math.random()*s.length)]; 
+      return r;
+    }
+
+    function nowISO() { return new Date().toISOString(); }
+
+    function loadData() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          const base = { 
+            folders: [{id:'inbox', name:'Inbox'}], 
+            notes: [] 
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(base));
+          return base;
+        }
+        return JSON.parse(raw);
+      } catch(e) {
+        console.error('loadData', e);
+        return {folders: [{id:'inbox', name:'Inbox'}], notes: []};
+      }
+    }
+
+    function saveData() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.data));
+      renderNotes();
+      updateCounts();
+    }
+
+    // Crypto helpers
+    async function deriveKeyFromPassword(password, saltBase64) {
+      const enc = new TextEncoder();
+      const salt = saltBase64 ? base64ToArr(saltBase64) : crypto.getRandomValues(new Uint8Array(16));
+      const pwKey = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+      const key = await crypto.subtle.deriveKey(
+        {name:'PBKDF2', salt, iterations:250000, hash:'SHA-256'}, 
+        pwKey, 
+        {name:'AES-GCM', length:256}, 
+        false, 
+        ['encrypt','decrypt']
+      );
+      return {key, salt};
+    }
+
+    async function encryptText(plain, cryptoKey) {
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const enc = new TextEncoder();
+      const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, cryptoKey, enc.encode(plain));
+      return {cipher: new Uint8Array(ct), iv};
+    }
+
+    async function decryptText(cipherArr, ivArr, cryptoKey) {
+      try {
+        const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:ivArr}, cryptoKey, cipherArr);
+        return new TextDecoder().decode(pt);
+      } catch(e) {
+        throw new Error('Decryption failed');
+      }
+    }
+
+    function arrToBase64(buf) { 
+      return btoa(String.fromCharCode(...new Uint8Array(buf)));
+    }
+    
+    function base64ToArr(b) { 
+      const str = atob(b); 
+      const arr = new Uint8Array(str.length); 
+      for(let i=0;i<str.length;i++) arr[i]=str.charCodeAt(i); 
+      return arr;
+    }
+
+    function escapeHtml(s) { 
+      if(!s) return ''; 
+      return s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+    }
+
+    function formatDate(dateStr) {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      if (diffHours < 24) return `${diffHours}h ago`;
+      if (diffDays < 7) return `${diffDays}d ago`;
+      
+      return date.toLocaleDateString();
+    }
+
+    // UI Functions
+    function renderNotes() {
+      const container = $('notesGrid');
+      const emptyState = $('emptyState');
+      const searchQuery = $('searchBox').value.toLowerCase().trim();
+      
+      let notes = appState.data.notes.filter(note => {
+        if (appState.showingLocked) {
+          return note.isPrivate;
+        }
+        
+        if (searchQuery) {
+          const titleMatch = note.title && note.title.toLowerCase().includes(searchQuery);
+          const contentMatch = !note.isPrivate && note.plainText && note.plainText.toLowerCase().includes(searchQuery);
+          return titleMatch || contentMatch;
+        }
+        
+        return true;
+      });
+
+      notes.sort((a, b) => new Date(b.updated || b.created) - new Date(a.updated || a.created));
+
+      if (notes.length === 0) {
+        emptyState.style.display = 'block';
+        if (appState.showingLocked) {
+          emptyState.innerHTML = `
+            <div class="empty-icon">🔒</div>
+            <p>No locked notes found.</p>
+          `;
+        } else if (searchQuery) {
+          emptyState.innerHTML = `
+            <div class="empty-icon">🔍</div>
+            <p>No notes found for "${searchQuery}"</p>
+          `;
+        } else {
+          emptyState.innerHTML = `
+            <div class="empty-icon">📝</div>
+            <p>No notes yet. Tap the + button to create your first note!</p>
+          `;
+        }
+        return;
+      }
+
+      emptyState.style.display = 'none';
+      
+      const notesHtml = notes.map(note => {
+        const folder = appState.data.folders.find(f => f.id === note.folderId);
+        const folderName = folder ? folder.name : 'Unknown';
+        
+        let preview = '';
+        if (note.isPrivate) {
+          if (appState.unlocked) {
+            preview = 'Tap to view encrypted content';
+          } else {
+            preview = 'Locked - Setup password to view';
+          }
+        } else {
+          preview = note.plainText ? note.plainText.substring(0, 100) + (note.plainText.length > 100 ? '...' : '') : 'No content';
+        }
+
+        return `
+          <div class="note-card ${note.isPrivate ? 'locked-note' : ''}" data-id="${note.id}">
+            <div class="note-title">${escapeHtml(note.title || 'Untitled Note')}</div>
+            <div class="note-preview">${escapeHtml(preview)}</div>
+            <div class="note-meta">
+              <span class="note-date">${formatDate(note.updated || note.created)}</span>
+              <div style="display: flex; gap: 6px;">
+                <span class="note-badge">${escapeHtml(folderName)}</span>
+                ${note.isPrivate ? '<span class="note-badge private-badge">Private</span>' : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      container.innerHTML = notesHtml;
+
+      // Add click handlers
+      container.querySelectorAll('.note-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const noteId = card.dataset.id;
+          openNote(noteId);
+        });
+      });
+    }
+
+    function renderFolders() {
+      const container = $('foldersList');
+      const folderSelect = $('folderSelect');
+      
+      // Update folders list in menu
+      const foldersHtml = appState.data.folders.map(folder => `
+        <div class="folder-item">
+          <span>${escapeHtml(folder.name)}</span>
+          <div class="folder-actions">
+            <button class="folder-btn" onclick="renameFolder('${folder.id}')">✏️</button>
+            <button class="folder-btn" onclick="deleteFolder('${folder.id}')">🗑️</button>
+          </div>
+        </div>
+      `).join('');
+      
+      container.innerHTML = foldersHtml;
+      
+      // Update folder select in editor
+      folderSelect.innerHTML = appState.data.folders.map(folder => 
+        `<option value="${folder.id}">${escapeHtml(folder.name)}</option>`
+      ).join('');
+    }
+
+    function updateCounts() {
+      $('noteCount').textContent = appState.data.notes.length;
+    }
+
+    function showMenu() {
+      $('menuOverlay').classList.add('active');
+      renderFolders();
+    }
+
+    function hideMenu() {
+      $('menuOverlay').classList.remove('active');
+    }
+
+    function showEditor(noteId = null) {
+      appState.currentNoteId = noteId;
+      const modal = $('editorModal');
+      const deleteBtn = $('deleteBtn');
+      
+      if (noteId) {
+        const note = appState.data.notes.find(n => n.id === noteId);
+        if (note) {
+          $('noteTitleInput').value = note.title || '';
+          $('folderSelect').value = note.folderId || 'inbox';
+          $('privateCheckbox').checked = !!note.isPrivate;
+          
+          if (note.isPrivate && (!appState.unlocked || !appState.cryptoKey)) {
+            $('noteContentTextarea').value = '🔒 This note is locked. Setup/unlock password in menu to edit.';
+            $('noteContentTextarea').disabled = true;
+          } else if (note.isPrivate) {
+            decryptNoteContent(note);
+            $('noteContentTextarea').disabled = false;
+          } else {
+            $('noteContentTextarea').value = note.plainText || '';
+            $('noteContentTextarea').disabled = false;
+          }
+          
+          deleteBtn.style.display = 'block';
+        }
+      } else {
+        // New note
+        $('noteTitleInput').value = '';
+        $('folderSelect').value = 'inbox';
+        $('privateCheckbox').checked = false;
+        $('noteContentTextarea').value = '';
+        $('noteContentTextarea').disabled = false;
+        deleteBtn.style.display = 'none';
+      }
+      
+      modal.classList.add('active');
+      setTimeout(() => $('noteTitleInput').focus(), 300);
+    }
+
+    function hideEditor() {
+      $('editorModal').classList.remove('active');
+      appState.currentNoteId = null;
+    }
+
+    async function decryptNoteContent(note) {
+      try {
+        const cipherArr = base64ToArr(note.body);
+        const iv = base64ToArr(note.iv);
+        const {key} = await deriveKeyFromPassword(appState.password, note.salt);
+        const text = await decryptText(cipherArr, iv, key);
+        $('noteContentTextarea').value = text;
+      } catch(e) {
+        $('noteContentTextarea').value = '❌ Unable to decrypt. Wrong password?';
+      }
+    }
+
+    function openNote(noteId) {
+      showEditor(noteId);
+    }
+
+    async function saveNote() {
+      const title = $('noteTitleInput').value.trim();
+      const content = $('noteContentTextarea').value;
+      const folderId = $('folderSelect').value;
+      const isPrivate = $('privateCheckbox').checked;
+      
+      if (!title && !content) {
+        alert('Please enter a title or content');
+        return;
+      }
+
+      if (isPrivate && (!appState.unlocked || !appState.cryptoKey)) {
+        alert('Please setup/unlock password before saving private notes.');
+        return;
+      }
+
+      const now = nowISO();
+      
+      if (appState.currentNoteId) {
+        // Update existing note
+        const note = appState.data.notes.find(n => n.id === appState.currentNoteId);
+        if (note) {
+          note.title = title;
+          note.folderId = folderId;
+          note.isPrivate = isPrivate;
+          note.updated = now;
+          
+          if (isPrivate) {
+            const encRes = await encryptText(content, appState.cryptoKey);
+            note.body = arrToBase64(encRes.cipher);
+            note.iv = arrToBase64(encRes.iv);
+            note.salt = arrToBase64(appState.salt);
+            delete note.plainText;
+          } else {
+            note.plainText = content;
+            delete note.body;
+            delete note.iv;
+            delete note.salt;
+          }
+        }
+      } else {
